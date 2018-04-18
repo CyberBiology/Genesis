@@ -1,7 +1,10 @@
 import javax.swing.*;
+
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 // Основной класс программы.
 public class World extends JFrame {
@@ -19,15 +22,25 @@ public class World extends JFrame {
     JLabel generationLabel = new JLabel(" Generation: 0 ");
     JLabel populationLabel = new JLabel(" Population: 0 ");
     JLabel organicLabel = new JLabel(" Organic: 0 ");
-
+    Image buffer	= null;
+    boolean runing	= false;
     JButton startButton = new JButton("Start/Stop");
-
-    public World(int width, int height) {
-        this.width = width;
-        this.height = height;
-        this.map = new int[width][height];
-        this.matrix = new Bot[width][height];
-
+    
+    Thread thread = null;
+    boolean started=true; // поток работает?
+    JPanel canvas = new JPanel()
+    {
+    	public void paint(Graphics g)
+    	{
+    		g.drawImage(buffer, 0, 0, null);
+    	};
+    }; 
+    
+    public World() {
+    	
+    	population	= 0;
+    	
+        
         simulation = this;
 
         setTitle("Genesis 1.0.0");
@@ -35,19 +48,24 @@ public class World extends JFrame {
         Dimension sSize = Toolkit.getDefaultToolkit().getScreenSize(), fSize = getSize();
         if (fSize.height > sSize.height) { fSize.height = sSize.height; }
         if (fSize.width  > sSize.width)  { fSize.width = sSize.width; }
-        setLocation((sSize.width - fSize.width)/2, (sSize.height - fSize.height)/2);
-
+        //setLocation((sSize.width - fSize.width)/2, (sSize.height - fSize.height)/2);
+        setSize(new Dimension(sSize.width, sSize.height));
+        
+        
         setDefaultCloseOperation (WindowConstants.EXIT_ON_CLOSE);
 
         Container container = getContentPane();
 
+        paintPanel.setLayout(new BorderLayout());// у этого лейаута приятная особенность - центральная часть растягивается автоматически
+        paintPanel.add(canvas, BorderLayout.CENTER);// добавляем нашу карту в центр
+        container.add(paintPanel);
+        
+        
         JPanel statusPanel = new JPanel(new FlowLayout());
         statusPanel.setLayout(new FlowLayout(FlowLayout.LEFT));
         statusPanel.setBorder(BorderFactory.createLoweredBevelBorder());
         container.add(statusPanel, BorderLayout.SOUTH);
-
-
-
+        
         generationLabel.setPreferredSize(new Dimension(140, 18));
         generationLabel.setBorder(BorderFactory.createLoweredBevelBorder());
         statusPanel.add(generationLabel);
@@ -74,31 +92,59 @@ public class World extends JFrame {
         startButton.addActionListener(new startButtonAction());
         toolbar.add(startButton);
 
-        paintPanel.setLayout(new FlowLayout(FlowLayout.LEFT));
-        paintPanel.setBorder(BorderFactory.createLoweredBevelBorder());
-        container.add(paintPanel, BorderLayout.CENTER);
+        //paintPanel.setLayout(new FlowLayout(FlowLayout.LEFT));
+        //paintPanel.setBorder(BorderFactory.createLoweredBevelBorder());
+        //container.add(paintPanel, BorderLayout.CENTER);
 
-        setVisible (true);
+        this.pack();
+        this.setVisible(true);
+        setExtendedState(MAXIMIZED_BOTH);
     }
 
     class generateMapButtonAction implements ActionListener {
         public void actionPerformed(ActionEvent e) {
-            generateMap((int) (Math.random() * 10000));
-            paint1(getGraphics());
+        	//System.out.println("width="+canvas.getWidth()+" height="+canvas.getHeight());
+        	
+        	if(map==null)// если карту еще не генерили, тода создаем
+        	{
+	        	width = canvas.getWidth()/2;// Ширина доступной части экрана для рисования карты
+	        	height = canvas.getHeight()/2;// Боты 4 пикселя?
+	        	
+	            generateMap((int) (Math.random() * 10000));
+	            generateAdam();
+	            paint1();
+        	}
         }
     }
     class startButtonAction implements ActionListener {
         public void actionPerformed(ActionEvent e) {
-            simulation.run();
+        	if(thread==null)
+        	{
+        		thread	= new Worker();// создаем новый поток
+        		thread.start();//Запускаем его
+        	}else
+        	{
+        		started = false;//Выставляем влаг 
+        		thread = null;
+        	}
         }
     }
-
+    
 
 //    @Override
-    public void paint1(Graphics g) {
+    public void paint1() {
+    	int leftout = 0;// Раньше был отступ справа
+    	int top = 0;// раньше был отступ сверху
+    	
+    	int w = canvas.getWidth();
+    	int h = canvas.getHeight();
+    	//Создаем временный буфер для рисования
+    	Image buf = canvas.createImage(w, h);
+    	//подеменяем графику на временный буфер
+    	Graphics g = buf.getGraphics();
 
-        int leftout = 150;                                      // отступ отрисовки
-        g.drawRect(leftout - 1, 49, width * 2 + 1, height * 2 + 1); // рамка отрисовки
+                                              // отступ отрисовки
+        g.drawRect(0, 0, w, h); // рамка отрисовки
 
         population = 0;
         organic = 0;
@@ -123,7 +169,7 @@ public class World extends JFrame {
                         if (mapgreen > 255) {mapgreen = 255;}
                     }
                     g.setColor(new Color(mapred, mapgreen, mapblue));
-                    g.fillRect(leftout + x * 2, 50 + y * 2, 2, 2);
+                    g.fillRect(leftout + x * 2, top + y * 2, 2, 2);
                 } else if (matrix[x][y].alive == 1) {           // органика
                     if (map[x][y] < 145) {                      // известняк, коралловые рифы
                         mapred = 5;
@@ -140,7 +186,7 @@ public class World extends JFrame {
                         if (mapgreen > 255) {mapgreen = 255;}
                     }
                     g.setColor(new Color(mapred, mapgreen, mapblue));
-                    g.fillRect(leftout + x * 2, 50 + y * 2, 2, 2);
+                    g.fillRect(leftout + x * 2, top + y * 2, 2, 2);
                     organic = organic + 1;
                 } else if (matrix[x][y].alive == 3) {           // живой бот
 //                    g.setColor(Color.BLACK);
@@ -153,7 +199,7 @@ public class World extends JFrame {
                     mapred = matrix[x][y].c_red;
 
                     g.setColor(new Color(mapred, mapgreen, mapblue));
-                    g.fillRect(leftout + x * 2, 50 + y * 2, 2, 2);
+                    g.fillRect(leftout + x * 2, top + y * 2, 2, 2);
                     population = population + 1;
                 }
             }
@@ -162,14 +208,19 @@ public class World extends JFrame {
         generationLabel.setText(" Generation: " + String.valueOf(generation));
         populationLabel.setText(" Population: " + String.valueOf(population));
         organicLabel.setText(" Organic: " + String.valueOf(organic));
-
+        
+        buffer = buf;
+        canvas.repaint();
+        //canvas.getGraphics().drawImage(buf, 0, 0, null);
     }
 
     // Основной цикл ----------------------------------------------------------------------------------
-    public void run() {
+    // Теперь не используется, переехал в Thread
+/*    public void run() {
         //пока не остановят симуляцию
         generation = 0;
-        while (true) {
+
+        /*while (true) {
             // обновляем матрицу
             for (int y = 0; y < height; y++) {
                 for (int x = 0; x < width; x++) {
@@ -186,30 +237,61 @@ public class World extends JFrame {
             }
 //            sleep();                                // пауза между ходами, если надо уменьшить скорость
         }
-    }
+    }*/
+   class Worker extends Thread
+   {
+		public void run()
+		{
+	        started	= true;// Флаг работы потока, если установить в false  поток заканчивает работу
+	        while (started) {
+	            // обновляем матрицу
+	            for (int y = 0; y < height; y++) {
+	                for (int x = 0; x < width; x++) {
+	                    if (matrix[x][y] != null) {
+	                        if (matrix[x][y].alive == 3) {
+	                            matrix[x][y].step();        // выполняем шаг бота
+	                        }
+	                    }
+	                }
+	            }
 
+	            generation = generation + 1;
+	            if (generation % 10 == 0) {             // отрисовка на экран через каждые ... шагов
+	                paint1();              // отображаем текущее состояние симуляции на экран
+	            }
+//	            sleep();                                // пауза между ходами, если надо уменьшить скорость
+	        }
+	        started = false;// Закончили работу
+		}
+   }
 
     public static World simulation;
 
     public static void main(String[] args) {
-        simulation = new World(800, 400);
+        simulation = new World();
 //        simulation.generateMap();
-        simulation.generateAdam();
+//        simulation.generateAdam();
 
 //        simulation.run();
     }
 
     // делаем паузу
-    public void sleep() {
+    // не используется
+    /*public void sleep() {
         try {
             int delay = 20;
             Thread.sleep(delay);
         } catch (InterruptedException e) {
         }
-    }
+    }*/
 
     // генерируем карту
     public void generateMap(int seed) {
+    	
+        this.map = new int[width][height];
+        this.matrix = new Bot[width][height];
+
+    	
         Perlin2D perlin = new Perlin2D(seed);
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
