@@ -7,6 +7,7 @@ public class Bot {
     public int health;
     public int mineral;
     public int alive;
+    public int age;
     public int c_red;
     public int c_green;
     public int c_blue;
@@ -206,7 +207,7 @@ public class Bot {
                     if (a == 3) {
                         botDouble(this);
                     } else {    // если бот уже находится внутри цепочки, то новый бот рождается свободным
-                        botMulti(this);     // в другом случае, новый бот рождается приклеенным к боту-предку
+//                        botMulti(this);     // в другом случае, новый бот рождается приклеенным к боту-предку
                     }
                     botIncCommandAddress(this, 1);   // увеличиваем адрес текущей команды на 1
                     breakflag = 1; // выходим, так как команда родить - завершающая
@@ -218,7 +219,7 @@ public class Bot {
                     if ((param == 0) || (param == 3)) {
                         botDouble(this);  // если бот свободный или внутри цепочки, , то новый бот рождается свободным
                     } else {
-                        botMulti(this);  // если бот крайний в цепочке, новый бот рождается приклеенным к боту-предку
+//                        botMulti(this);  // если бот крайний в цепочке, новый бот рождается приклеенным к боту-предку
                     }
                     botIncCommandAddress(this, 1);
                     breakflag = 1;
@@ -271,11 +272,11 @@ public class Bot {
 // спорная команда, во время её выполнения меняются случайным образом две случайные команды
 // читал, что микроорганизмы могут усилить вероятность мутации своего генома в неблагоприятных условиях
                 case 51:
-                    int ma = (int) (Math.random() * 64);  // 0..63
-                    int mc = (int) (Math.random() * 64);  // 0..63
+                    int ma = (int) (Math.random() * MIND_SIZE);  // 0..63
+                    int mc = (int) (Math.random() * MIND_SIZE);  // 0..63
                     mind[ma] = mc;
-                    ma = (int) (Math.random() * 64);  // 0..63
-                    mc = (int) (Math.random() * 64);  // 0..63
+                    ma = (int) (Math.random() * MIND_SIZE);  // 0..63
+                    mc = (int) (Math.random() * MIND_SIZE);  // 0..63
                     mind[ma] = mc;
                     botIncCommandAddress(this, 1);
                     breakflag = 1;     // выходим, так как команда мутировать - завершающая
@@ -363,23 +364,26 @@ public class Bot {
                 }
             }
             //... проверим уровень энергии у бота, возможно пришла пора помереть или родить
-            if (health >= 999) {                    // если энергии больше 999, то плодим нового бота
+            if (health > 999) {                    // если энергии больше 999, то плодим нового бота
                 if ((a == 1) || (a == 2)) { botMulti(this); // если бот был крайним в цепочке, то его потомок входит в состав цепочки
                 } else { botDouble(this); }         // если бот был свободным или находился внутри цепочки
             }                                       // то его потомок рождается свободным
-            health = health - 3;                    // каждый ход отнимает 3 единички здоровья(энегрии)
+            health -= 3;                    // каждый ход отнимает 3 единицы энегрии
+            age++;                                  // увеличиваем возраст
             if (health <= 0) {                      // если энергии стало меньше 1
                 bot2Organic(this);                  // то время умирать, превращаясь в огранику
                 return;                             // и передаем управление к следующему боту
             }
 
             int level = World.simulation.map[x][y];
-            if ((level > 115) && (level <= 125)) {
-                mineral++;
-            } else if ((level > 125) && (level <= 135)) {
-                mineral = mineral + 2;
-            } else if ((level > 135) && (level <= 145)) {
-                mineral = mineral + 3;
+            if ((level > 115) && (level <= 145)) {
+                if (level <= 125) {
+                    mineral++;
+                } else if (level <= 135) {
+                    mineral += 2;
+                } else {
+                    mineral += 3;
+                }
             }
             if (mineral > 1000) mineral = 1000;
         }
@@ -582,8 +586,8 @@ public class Bot {
         } else { t = 2; }
 
         int a = 0;
-        if (bot.mprev != null) a = a + 2;
-        if (bot.mnext != null) a = a + 2;
+        if (bot.mprev != null) a = a + 1;
+        if (bot.mnext != null) a = a + 1;
 
         int hlt = 0;
         int level = World.simulation.map[x][y];
