@@ -1,4 +1,6 @@
 import javax.swing.*;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
 
 import java.awt.*;
 import java.awt.event.ActionEvent;
@@ -11,17 +13,15 @@ public class World extends JFrame {
 
     public int width;
     public int height;
+    public int sealevel;
+    public int drawstep;
     public int[][] map;    //Карта мира
+    public Color[][] mapview;    //Карта мира
     public Bot[][] matrix;    //Матрица мира
     public int generation;
     public int population;
     public int organic;
 
-    JPanel paintPanel = new JPanel(new FlowLayout());
-
-    JLabel generationLabel = new JLabel(" Generation: 0 ");
-    JLabel populationLabel = new JLabel(" Population: 0 ");
-    JLabel organicLabel = new JLabel(" Organic: 0 ");
     Image buffer = null;
 
     Thread thread = null;
@@ -31,6 +31,19 @@ public class World extends JFrame {
     		g.drawImage(buffer, 0, 0, null);
     	}
     };
+
+    JPanel paintPanel = new JPanel(new FlowLayout());
+
+    JLabel generationLabel = new JLabel(" Generation: 0 ");
+    JLabel populationLabel = new JLabel(" Population: 0 ");
+    JLabel organicLabel = new JLabel(" Organic: 0 ");
+
+    JSlider perlinSlider = new JSlider (JSlider.HORIZONTAL, 0, 480, 160);
+    JButton mapButton = new JButton("Create Map");
+    JSlider sealevelSlider = new JSlider (JSlider.HORIZONTAL, 0, 256, 145);
+    JButton startButton = new JButton("Start/Stop");
+    JSlider drawstepSlider = new JSlider (JSlider.HORIZONTAL, 0, 40, 10);
+
 
     JRadioButton baseButton = new JRadioButton("Base", true);
     JRadioButton energyButton = new JRadioButton("Energy", false);
@@ -42,11 +55,14 @@ public class World extends JFrame {
     	
         simulation = this;
 
-        setTitle("Genesis 1.0.0");
+        sealevel = 145;
+        drawstep = 10;
+
+        setTitle("Genesis 1.1.0");
         setSize(new Dimension(1800, 900));
         Dimension sSize = Toolkit.getDefaultToolkit().getScreenSize(), fSize = getSize();
-        if (fSize.height > sSize.height) { fSize.height = sSize.height; }
-        if (fSize.width  > sSize.width)  { fSize.width = sSize.width; }
+        if (fSize.height > sSize.height) fSize.height = sSize.height;
+        if (fSize.width  > sSize.width) fSize.width = sSize.width;
         //setLocation((sSize.width - fSize.width)/2, (sSize.height - fSize.height)/2);
         setSize(new Dimension(sSize.width, sSize.height));
         
@@ -81,13 +97,48 @@ public class World extends JFrame {
 //        toolbar.setBorder(BorderFactory.createLoweredBevelBorder());
         container.add(toolbar, BorderLayout.WEST);
 
-        JButton button = new JButton("Generate Map");
-        button.addActionListener(new generateMapButtonAction());
-        toolbar.add(button);
+        JLabel slider1Label = new JLabel("Map scale");
+        toolbar.add(slider1Label);
 
-        JButton startButton = new JButton("Start/Stop");
+        perlinSlider.setMajorTickSpacing(160);
+        perlinSlider.setMinorTickSpacing(80);
+        perlinSlider.setPaintTicks(true);
+        perlinSlider.setPaintLabels(true);
+        perlinSlider.setPreferredSize(new Dimension(100, perlinSlider.getPreferredSize().height));
+        perlinSlider.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        toolbar.add(perlinSlider);
+
+        mapButton.addActionListener(new mapButtonAction());
+        toolbar.add(mapButton);
+
+        JLabel slider2Label = new JLabel("Sea level");
+        toolbar.add(slider2Label);
+
+        sealevelSlider.addChangeListener(new sealevelSliderChange());
+        sealevelSlider.setMajorTickSpacing(128);
+        sealevelSlider.setMinorTickSpacing(64);
+        sealevelSlider.setPaintTicks(true);
+        sealevelSlider.setPaintLabels(true);
+        sealevelSlider.setPreferredSize(new Dimension(100, sealevelSlider.getPreferredSize().height));
+        sealevelSlider.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        toolbar.add(sealevelSlider);
+
         startButton.addActionListener(new startButtonAction());
         toolbar.add(startButton);
+
+        JLabel slider3Label = new JLabel("Draw step");
+        toolbar.add(slider3Label);
+
+        drawstepSlider.addChangeListener(new drawstepSliderChange());
+        drawstepSlider.setMajorTickSpacing(10);
+//        drawstepSlider.setMinimum(1);
+//        drawstepSlider.setMinorTickSpacing(64);
+        drawstepSlider.setPaintTicks(true);
+        drawstepSlider.setPaintLabels(true);
+        drawstepSlider.setPreferredSize(new Dimension(100, sealevelSlider.getPreferredSize().height));
+        drawstepSlider.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        toolbar.add(drawstepSlider);
+
 
         ButtonGroup group = new ButtonGroup();
         group.add(baseButton);
@@ -106,27 +157,75 @@ public class World extends JFrame {
         setExtendedState(MAXIMIZED_BOTH);
     }
 
-    class generateMapButtonAction implements ActionListener {
+    class sealevelSliderChange implements ChangeListener {
+        public void stateChanged(ChangeEvent event) {
+            sealevel = sealevelSlider.getValue();
+            if (map != null) {
+                paintMapView();
+                paint1();
+            }
+        }
+    }
+
+    class drawstepSliderChange implements ChangeListener {
+        public void stateChanged(ChangeEvent event) {
+            int ds = drawstepSlider.getValue();
+            if (ds == 0) ds = 1;
+            drawstep = ds;
+        }
+    }
+
+    class mapButtonAction implements ActionListener {
         public void actionPerformed(ActionEvent e) {
             width = canvas.getWidth() / 2;    // Ширина доступной части экрана для рисования карты
             height = canvas.getHeight() / 2;
             generateMap((int) (Math.random() * 10000));
             generateAdam();
+            paintMapView();
             paint1();
         }
     }
     class startButtonAction implements ActionListener {
         public void actionPerformed(ActionEvent e) {
         	if(thread==null) {
+        	    perlinSlider.setEnabled(false);
+        	    mapButton.setEnabled(false);
         		thread	= new Worker(); // создаем новый поток
         		thread.start();
         	} else {
         		started = false;        //Выставляем влаг
         		thread = null;
+                perlinSlider.setEnabled(true);
+                mapButton.setEnabled(true);
         	}
         }
     }
-    
+
+    public void paintMapView() {
+        int mapred;
+        int mapgreen;
+        int mapblue;
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                if (map[x][y] < sealevel) {                     // подводная часть
+                    mapred = 5;
+                    mapblue = 140 - (sealevel - map[x][y]) * 3;
+                    mapgreen = 150 - (sealevel - map[x][y]) * 10;
+                    if (mapblue < 20) mapblue = 20;
+                    if (mapgreen < 10) mapgreen = 10;
+                } else {                                        // надводная часть
+                    mapred = (int)(150 + (map[x][y] - sealevel) * 2.5);
+                    mapgreen = (int)(100 + (map[x][y] - sealevel) * 2.6);
+                    mapblue = 50 + (map[x][y] - sealevel) * 3;
+                    if (mapred > 255) mapred = 255;
+                    if (mapblue > 255) mapblue = 255;
+                    if (mapgreen > 255) mapgreen = 255;
+                }
+                mapview[x][y] = new Color(mapred, mapgreen, mapblue);
+            }
+        }
+    }
+
 
 //    @Override
     public void paint1() {
@@ -139,38 +238,24 @@ public class World extends JFrame {
         population = 0;
         organic = 0;
         int mapred;
-        int mapgreen;
-        int mapblue;
+        int mapgreen = 0;
+        int mapblue = 0;
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                if (matrix[x][y] == null) {                     // пустая карта - рисуем голый ланшафт
-                    if (map[x][y] < 145) {                      // уровень моря
-                        mapred = 5;
-                        mapblue = map[x][y] * 3 - 290;
-                        mapgreen = map[x][y] * 10 - 1280;;
-                        if (mapblue < 20) mapblue = 20;
-                        if (mapgreen < 10) mapgreen = 10;
-                    } else {
-                        mapred = (int)((map[x][y] - 145) * 2.5 + 160);
-                        mapgreen = (int)((map[x][y] - 145) * 2.6 + 110);
-                        mapblue = (map[x][y] - 145) * 3 + 60;
-                        if (mapred > 255) mapred = 255;
-                        if (mapblue > 255) mapblue = 255;
-                        if (mapgreen > 255) mapgreen = 255;
-                    }
-                    g.setColor(new Color(mapred, mapgreen, mapblue));
+                if (matrix[x][y] == null) {                         // пустая карта - рисуем голый ланшафт
+                    g.setColor(mapview[x][y]);
                     g.fillRect(x * 2, y * 2, 2, 2);
                 } else if (matrix[x][y].alive == 1) {           // органика, известняк, коралловые рифы
-                    if (map[x][y] < 145) {                      // уровень моря
-                        mapred = 5;
-                        mapblue = map[x][y] * 2 - 120;
-                        mapgreen = map[x][y] * 4 - 400;
+                    if (map[x][y] < sealevel) {                      // подводная часть
+                        mapred = 20;
+                        mapblue = 160 - (sealevel - map[x][y]) * 2;
+                        mapgreen = 170 - (sealevel - map[x][y]) * 4;
                         if (mapblue < 40) mapblue = 40;
                         if (mapgreen < 20) mapgreen = 20;
                     } else {                                    // скелетики, трупики на суше
-                        mapred = (int)((map[x][y] - 145) * 2.5 + 80);   // уровень моря
-                        mapgreen = (int)((map[x][y] - 145) * 2.6 + 60); // уровень моря
-                        mapblue = (map[x][y] - 145) * 3 + 30;           // уровень моря
+                        mapred = (int)(80 + (map[x][y] - sealevel) * 2.5);   // надводная часть
+                        mapgreen = (int)(60 + (map[x][y] - sealevel) * 2.6);
+                        mapblue = 30 + (map[x][y] - sealevel) * 3;
                         if (mapred > 255) mapred = 255;
                         if (mapblue > 255) mapblue = 255;
                         if (mapgreen > 255) mapgreen = 255;
@@ -191,6 +276,7 @@ public class World extends JFrame {
                         g.setColor(new Color(0, 255, mapblue));
                     } else if (combinedButton.isSelected()) {
                         mapgreen = (int) (matrix[x][y].c_green * (1 - matrix[x][y].health * 0.0005));
+                        if (mapgreen < 0) mapgreen = 0;
                         mapblue = (int) (matrix[x][y].c_blue * (0.8 - matrix[x][y].mineral * 0.0005));
                         g.setColor(new Color(matrix[x][y].c_red, mapgreen, mapblue));
                     } else if (ageButton.isSelected()) {
@@ -228,7 +314,7 @@ public class World extends JFrame {
                 }
 
                 generation = generation + 1;
-                if (generation % 10 == 0) {             // отрисовка на экран через каждые ... шагов
+                if (generation % drawstep == 0) {             // отрисовка на экран через каждые ... шагов
                     paint1();                           // отображаем текущее состояние симуляции на экран
                 }
 //	            sleep();                                // пауза между ходами, если надо уменьшить скорость
@@ -260,12 +346,14 @@ public class World extends JFrame {
     public void generateMap(int seed) {
         generation = 0;
         this.map = new int[width][height];
+        this.mapview = new Color[width][height];
         this.matrix = new Bot[width][height];
 
         Perlin2D perlin = new Perlin2D(seed);
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                float value = perlin.getNoise(x/160f,y/160f,8,0.45f);        // вычисляем точку ландшафта
+                float f = (float) perlinSlider.getValue();
+                float value = perlin.getNoise(x/f,y/f,8,0.45f);        // вычисляем точку ландшафта
                 map[x][y] = (int)(value * 255 + 128) & 255;
             }
         }

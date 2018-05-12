@@ -240,7 +240,7 @@ public class Bot {
 //******************************************************************
 //............... минералы прибавляются? ............................
                 case 48:  // если глубина больше половины, то он начинает накапливать минералы
-                    if ((World.simulation.map[x][y] > 100) && (World.simulation.map[x][y] <= 145)) {
+                    if ((World.simulation.map[x][y] > World.simulation.sealevel - 30) && (World.simulation.map[x][y] <= World.simulation.sealevel)) {
                         botIndirectIncCmdAddress(this, 1);
                     } else {
                         botIndirectIncCmdAddress(this, 2);
@@ -376,10 +376,11 @@ public class Bot {
             }
 
             int level = World.simulation.map[x][y];
-            if ((level > 115) && (level <= 145)) {
-                if (level <= 125) {
+            int sealevel = World.simulation.sealevel;
+            if ((level > sealevel - 30) && (level <= sealevel)) {
+                if (level <= sealevel - 20) {
                     mineral++;
-                } else if (level <= 135) {
+                } else if (level <= sealevel - 10) {
                     mineral += 2;
                 } else {
                     mineral += 3;
@@ -591,8 +592,9 @@ public class Bot {
 
         int hlt = 0;
         int level = World.simulation.map[x][y];
-        if ((level > 145) && (level <= 200)) {
-            hlt =  t + a + (200 - World.simulation.map[x][y]) / 5; // формула вычисления энергии
+        int sealevel = World.simulation.sealevel;
+        if ((level > sealevel) && (level <= sealevel + 60)) {
+            hlt =  t + a + (int)((sealevel + 60 - level) * 0.2); // формула вычисления энергии
         }
         if (hlt > 0) {
             bot.health = bot.health + hlt;          // прибавляем полученную энергия к энергии бота
@@ -943,10 +945,10 @@ public class Bot {
                 t = 2;
             }
         }
-//        int hlt = 10 - (15 * bot.y / World.simulation.height) + t; // ====================================================== SEZON!!!!!!!!!!!!!!!!!!
+
         int hlt = 0;
-        if ((World.simulation.map[x][y] > 145) && (World.simulation.map[x][y] <= 210)) {
-            hlt = (210 - World.simulation.map[x][y]) / 5 + t; // формула вычисления энергии
+        if ((World.simulation.map[x][y] > World.simulation.sealevel) && (World.simulation.map[x][y] <= World.simulation.sealevel + 60)) {
+            hlt = (World.simulation.sealevel + 60 - World.simulation.map[x][y]) / 5 + t; // формула вычисления энергии
         }
         if (hlt >= 3) {
             return 1;
