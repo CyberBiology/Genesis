@@ -8,6 +8,7 @@ public class Bot {
     public int mineral;
     public int alive;
     public int age;
+    public int lastgeneration;
     public int c_red;
     public int c_green;
     public int c_blue;
@@ -387,6 +388,8 @@ public class Bot {
                 }
             }
             if (mineral > 1000) mineral = 1000;
+
+            lastgeneration = World.simulation.generation;
         }
     }
 

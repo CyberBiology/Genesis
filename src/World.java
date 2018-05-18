@@ -17,6 +17,7 @@ public class World extends JFrame {
     public int drawstep;
     public int[][] map;    //Карта мира
     public Color[][] mapview;    //Карта мира
+    public Image mapbuffer = null;
     public Bot[][] matrix;    //Матрица мира
     public int generation;
     public int population;
@@ -205,6 +206,8 @@ public class World extends JFrame {
         int mapred;
         int mapgreen;
         int mapblue;
+        mapbuffer = canvas.createImage(width * 2, height * 2); // ширина - высота картинки
+        Graphics g = mapbuffer.getGraphics();
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
                 if (map[x][y] < sealevel) {                     // подводная часть
@@ -221,7 +224,8 @@ public class World extends JFrame {
                     if (mapblue > 255) mapblue = 255;
                     if (mapgreen > 255) mapgreen = 255;
                 }
-                mapview[x][y] = new Color(mapred, mapgreen, mapblue);
+                g.setColor(new Color(mapred, mapgreen, mapblue));
+                g.fillRect(x * 2, y * 2, 2, 2);
             }
         }
     }
@@ -229,63 +233,60 @@ public class World extends JFrame {
 
 //    @Override
     public void paint1() {
-    	int w = canvas.getWidth();
-    	int h = canvas.getHeight();
-    	Image buf = canvas.createImage(w, h); //Создаем временный буфер для рисования
+    	Image buf = canvas.createImage(width * 2, height * 2);; //Создаем временный буфер для рисования
     	Graphics g = buf.getGraphics(); //подеменяем графику на временный буфер
-//        g.drawRect(0, 0, w, h); // рамка отрисовки
+        g.drawImage(mapbuffer, 0, 0, null);
 
         population = 0;
         organic = 0;
         int mapred;
-        int mapgreen = 0;
-        int mapblue = 0;
+        int mapgreen;
+        int mapblue;
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                if (matrix[x][y] == null) {                         // пустая карта - рисуем голый ланшафт
-                    g.setColor(mapview[x][y]);
-                    g.fillRect(x * 2, y * 2, 2, 2);
-                } else if (matrix[x][y].alive == 1) {           // органика, известняк, коралловые рифы
-                    if (map[x][y] < sealevel) {                      // подводная часть
-                        mapred = 20;
-                        mapblue = 160 - (sealevel - map[x][y]) * 2;
-                        mapgreen = 170 - (sealevel - map[x][y]) * 4;
-                        if (mapblue < 40) mapblue = 40;
-                        if (mapgreen < 20) mapgreen = 20;
-                    } else {                                    // скелетики, трупики на суше
-                        mapred = (int)(80 + (map[x][y] - sealevel) * 2.5);   // надводная часть
-                        mapgreen = (int)(60 + (map[x][y] - sealevel) * 2.6);
-                        mapblue = 30 + (map[x][y] - sealevel) * 3;
-                        if (mapred > 255) mapred = 255;
-                        if (mapblue > 255) mapblue = 255;
-                        if (mapgreen > 255) mapgreen = 255;
+                if (matrix[x][y] != null) {
+                    if (matrix[x][y].alive == 3) {                      // живой бот
+                        if (baseButton.isSelected()) {
+                            g.setColor(new Color(matrix[x][y].c_red, matrix[x][y].c_green, matrix[x][y].c_blue));
+                        } else if (energyButton.isSelected()) {
+                            mapgreen = 255 - (int) (matrix[x][y].health * 0.25);
+                            if (mapgreen < 0) mapgreen = 0;
+                            g.setColor(new Color(255, mapgreen, 0));
+                        } else if (mineralButton.isSelected()) {
+                            mapblue = 255 - (int) (matrix[x][y].mineral * 0.5);
+                            if (mapblue < 0) mapblue = 0;
+                            g.setColor(new Color(0, 255, mapblue));
+                        } else if (combinedButton.isSelected()) {
+                            mapgreen = (int) (matrix[x][y].c_green * (1 - matrix[x][y].health * 0.0005));
+                            if (mapgreen < 0) mapgreen = 0;
+                            mapblue = (int) (matrix[x][y].c_blue * (0.8 - matrix[x][y].mineral * 0.0005));
+                            g.setColor(new Color(matrix[x][y].c_red, mapgreen, mapblue));
+                        } else if (ageButton.isSelected()) {
+                            mapred = 255 - (int) (Math.sqrt(matrix[x][y].age) * 4);
+                            if (mapred < 0) mapred = 0;
+                            g.setColor(new Color(mapred, 0, 255));
+                        }
+                        g.fillRect(x * 2, y * 2, 2, 2);
+                        population++;
+                    } else if (matrix[x][y].alive == 1) {                                            // органика, известняк, коралловые рифы
+                        if (map[x][y] < sealevel) {                     // подводная часть
+                            mapred = 20;
+                            mapblue = 160 - (sealevel - map[x][y]) * 2;
+                            mapgreen = 170 - (sealevel - map[x][y]) * 4;
+                            if (mapblue < 40) mapblue = 40;
+                            if (mapgreen < 20) mapgreen = 20;
+                        } else {                                    // скелетики, трупики на суше
+                            mapred = (int) (80 + (map[x][y] - sealevel) * 2.5);   // надводная часть
+                            mapgreen = (int) (60 + (map[x][y] - sealevel) * 2.6);
+                            mapblue = 30 + (map[x][y] - sealevel) * 3;
+                            if (mapred > 255) mapred = 255;
+                            if (mapblue > 255) mapblue = 255;
+                            if (mapgreen > 255) mapgreen = 255;
+                        }
+                        g.setColor(new Color(mapred, mapgreen, mapblue));
+                        g.fillRect(x * 2, y * 2, 2, 2);
+                        organic++;
                     }
-                    g.setColor(new Color(mapred, mapgreen, mapblue));
-                    g.fillRect(x * 2, y * 2, 2, 2);
-                    organic = organic + 1;
-                } else if (matrix[x][y].alive == 3) {           // живой бот
-                    if (baseButton.isSelected()) {
-                        g.setColor(new Color(matrix[x][y].c_red, matrix[x][y].c_green, matrix[x][y].c_blue));
-                    } else if (energyButton.isSelected()) {
-                        mapgreen = 255 - (int)(matrix[x][y].health * 0.25);
-                        if (mapgreen < 0) mapgreen = 0;
-                        g.setColor(new Color(255, mapgreen, 0));
-                    } else if (mineralButton.isSelected()) {
-                        mapblue = 255 - (int)(matrix[x][y].mineral * 0.5);
-                        if (mapblue < 0) mapblue = 0;
-                        g.setColor(new Color(0, 255, mapblue));
-                    } else if (combinedButton.isSelected()) {
-                        mapgreen = (int) (matrix[x][y].c_green * (1 - matrix[x][y].health * 0.0005));
-                        if (mapgreen < 0) mapgreen = 0;
-                        mapblue = (int) (matrix[x][y].c_blue * (0.8 - matrix[x][y].mineral * 0.0005));
-                        g.setColor(new Color(matrix[x][y].c_red, mapgreen, mapblue));
-                    } else if (ageButton.isSelected()) {
-                        mapred = 255 - (int)(Math.sqrt(matrix[x][y].age) * 4);
-                        if (mapred < 0) mapred = 0;
-                        g.setColor(new Color(mapred, 0, 255));
-                    }
-                    g.fillRect(x * 2, y * 2, 2, 2);
-                    population = population + 1;
                 }
             }
         }
@@ -307,17 +308,15 @@ public class World extends JFrame {
                     for (int x = 0; x < width; x++) {
                         if (matrix[x][y] != null) {
                             if (matrix[x][y].alive == 3) {
-                                matrix[x][y].step();        // выполняем шаг бота
+                                if (matrix[x][y].lastgeneration < generation) matrix[x][y].step();        // выполняем шаг бота
                             }
                         }
                     }
                 }
-
-                generation = generation + 1;
+                generation++;
                 if (generation % drawstep == 0) {             // отрисовка на экран через каждые ... шагов
                     paint1();                           // отображаем текущее состояние симуляции на экран
                 }
-//	            sleep();                                // пауза между ходами, если надо уменьшить скорость
             }
             started = false;        // Закончили работу
         }
