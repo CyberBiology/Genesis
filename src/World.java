@@ -14,49 +14,50 @@ import java.awt.image.DataBufferInt;
 // Основной класс программы.
 public class World extends JFrame {
 
-    public int width;
-    public int height;
-    public int zoom;
-    public int sealevel;
-    public int drawstep;
-    public int[][] map;    //Карта мира
-    public int[] mapInGPU;    //Карта для GPU
-    public Image mapbuffer = null;
-    public Bot[][] matrix;    //Матрица мира
-    public Bot zerobot = new Bot();
-    public Bot currentbot;
-    public int generation;
-    public int population;
-    public int organic;
+    int width;
+    int height;
+    private int zoom;
+    int sealevel;
+    private int drawstep;
+    int[][] map;    //Карта мира
+    private int[] mapInGPU;    //Карта для GPU
+    private Image mapbuffer = null;
+    Bot[][] matrix;    //Матрица мира
+    private Bot zerobot = new Bot();
+    private Bot currentbot;
+    int generation;
+    private int population;
+    private int organic;
 
-    Image buffer = null;
+    private Image buffer = null;
 
-    Thread thread = null;
-    boolean started = true; // поток работает?
-    JPanel canvas = new JPanel() {
+    private Thread thread = null;
+    private boolean started = true; // поток работает?
+    private JPanel canvas = new JPanel() {
     	public void paint(Graphics g) {
     		g.drawImage(buffer, 0, 0, null);
     	}
     };
 
-    JPanel paintPanel = new JPanel(new FlowLayout());
+    private JPanel paintPanel = new JPanel(new FlowLayout());
 
-    JLabel generationLabel = new JLabel(" Generation: 0 ");
-    JLabel populationLabel = new JLabel(" Population: 0 ");
-    JLabel organicLabel = new JLabel(" Organic: 0 ");
+    private JLabel generationLabel = new JLabel(" Generation: 0 ");
+    private JLabel populationLabel = new JLabel(" Population: 0 ");
+    private JLabel organicLabel = new JLabel(" Organic: 0 ");
 
-    JSlider perlinSlider = new JSlider (JSlider.HORIZONTAL, 0, 480, 160);
-    JButton mapButton = new JButton("Create Map");
-    JSlider sealevelSlider = new JSlider (JSlider.HORIZONTAL, 0, 256, 145);
-    JButton startButton = new JButton("Start/Stop");
-    JSlider drawstepSlider = new JSlider (JSlider.HORIZONTAL, 0, 40, 10);
+    private JSlider perlinSlider = new JSlider (JSlider.HORIZONTAL, 0, 480, 300);
+    private JButton mapButton = new JButton("Create Map");
+    private JSlider sealevelSlider = new JSlider (JSlider.HORIZONTAL, 0, 256, 145);
+    private JButton startButton = new JButton("Start/Stop");
+    private JSlider drawstepSlider = new JSlider (JSlider.HORIZONTAL, 0, 40, 10);
 
 
-    JRadioButton baseButton = new JRadioButton("Base", true);
-    JRadioButton combinedButton = new JRadioButton("Combined", false);
-    JRadioButton energyButton = new JRadioButton("Energy", false);
-    JRadioButton mineralButton = new JRadioButton("Minerals", false);
-    JRadioButton ageButton = new JRadioButton("Age", false);
+    private JRadioButton baseButton = new JRadioButton("Base", true);
+    private JRadioButton combinedButton = new JRadioButton("Combined", false);
+    private JRadioButton energyButton = new JRadioButton("Energy", false);
+    private JRadioButton mineralButton = new JRadioButton("Minerals", false);
+    private JRadioButton ageButton = new JRadioButton("Age", false);
+    private JRadioButton familyButton = new JRadioButton("Family", false);
 
     public World() {
     	
@@ -154,11 +155,13 @@ public class World extends JFrame {
         group.add(energyButton);
         group.add(mineralButton);
         group.add(ageButton);
+        group.add(familyButton);
         toolbar.add(baseButton);
         toolbar.add(combinedButton);
         toolbar.add(energyButton);
         toolbar.add(mineralButton);
         toolbar.add(ageButton);
+        toolbar.add(familyButton);
 
         this.pack();
         this.setVisible(true);
@@ -277,6 +280,8 @@ public class World extends JFrame {
                     mapred = 255 - (int) (Math.sqrt(currentbot.age) * 4);
                     if (mapred < 0) mapred = 0;
                     rgb[currentbot.y * width + currentbot.x] = (255 << 24) | (mapred << 16) | (0 << 8) | 255;
+                } else if (familyButton.isSelected()) {
+                    rgb[currentbot.y * width + currentbot.x] = currentbot.c_family;
                 }
                 population++;
             } else if (currentbot.alive == 1) {                                            // органика, известняк, коралловые рифы
@@ -316,25 +321,20 @@ public class World extends JFrame {
         public void run() {
             started	= true;         // Флаг работы потока, если false  поток заканчивает работу
             while (started) {       // обновляем матрицу
-//                for (int y = 0; y < height; y++) {
-//                    for (int x = 0; x < width; x++) {
-//                        if (matrix[x][y] != null) {
-//                            if (matrix[x][y].alive == 3) {
-//                                if (matrix[x][y].lastgeneration < generation) matrix[x][y].step();        // выполняем шаг бота
-//                            }
-//                        }
-//                    }
-//                }
-
+                long time1 = System.currentTimeMillis();
                 while (currentbot != zerobot) {
                     if (currentbot.alive == 3) currentbot.step();
                     currentbot = currentbot.next;
                 }
                 currentbot = currentbot.next;
                 generation++;
+                long time2 = System.currentTimeMillis();
+//                System.out.println("Step execute " + ": " + (time2-time1) + "");
                 if (generation % drawstep == 0) {             // отрисовка на экран через каждые ... шагов
                     paint1();                           // отображаем текущее состояние симуляции на экран
                 }
+                long time3 = System.currentTimeMillis();
+//                System.out.println("Paint: " + (time3-time2));
             }
             started = false;        // Закончили работу
         }
@@ -399,8 +399,6 @@ public class World extends JFrame {
         bot.c_blue = 170;
         bot.c_green = 170;
         bot.direction = 5;      // направление
-        bot.mprev = null;       // бот не входит в многоклеточные цепочки, поэтому ссылки
-        bot.mnext = null;       // на предыдущего, следующего в многоклеточной цепочке пусты
         bot.prev = zerobot;     // ссылка на предыдущего
         bot.next = zerobot;     // ссылка на следующего
         for (int i = 0; i < 64; i++) {          // заполняем геном командой 32 - фотосинтез
