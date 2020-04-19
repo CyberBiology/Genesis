@@ -12,7 +12,7 @@ import java.awt.image.DataBufferInt;
 
 
 // Основной класс программы.
-public class World extends JFrame {
+public class World implements GuiCallback,Consts {
 
     int width;
     int height;
@@ -28,195 +28,72 @@ public class World extends JFrame {
     int generation;
     private int population;
     private int organic;
+    private int viewMode = VIEW_MODE_BASE;
 
     private Image buffer = null;
 
     private Thread thread = null;
     private boolean started = true; // поток работает?
-    private JPanel canvas = new JPanel() {
-    	public void paint(Graphics g) {
-    		g.drawImage(buffer, 0, 0, null);
-    	}
-    };
 
-    private JPanel paintPanel = new JPanel(new FlowLayout());
-
-    private JLabel generationLabel = new JLabel(" Generation: 0 ");
-    private JLabel populationLabel = new JLabel(" Population: 0 ");
-    private JLabel organicLabel = new JLabel(" Organic: 0 ");
-
-    private JSlider perlinSlider = new JSlider (JSlider.HORIZONTAL, 0, 480, 300);
-    private JButton mapButton = new JButton("Create Map");
-    private JSlider sealevelSlider = new JSlider (JSlider.HORIZONTAL, 0, 256, 145);
-    private JButton startButton = new JButton("Start/Stop");
-    private JSlider drawstepSlider = new JSlider (JSlider.HORIZONTAL, 0, 40, 10);
-
-
-    private JRadioButton baseButton = new JRadioButton("Base", true);
-    private JRadioButton combinedButton = new JRadioButton("Combined", false);
-    private JRadioButton energyButton = new JRadioButton("Energy", false);
-    private JRadioButton mineralButton = new JRadioButton("Minerals", false);
-    private JRadioButton ageButton = new JRadioButton("Age", false);
-    private JRadioButton familyButton = new JRadioButton("Family", false);
+    private final Gui gui;
 
     public World() {
-    	
         simulation = this;
-
         zoom = 1;
         sealevel = 145;
         drawstep = 10;
-
-        setTitle("Genesis 1.2.0");
-        setSize(new Dimension(1800, 900));
-        Dimension sSize = Toolkit.getDefaultToolkit().getScreenSize(), fSize = getSize();
-        if (fSize.height > sSize.height) fSize.height = sSize.height;
-        if (fSize.width  > sSize.width) fSize.width = sSize.width;
-        //setLocation((sSize.width - fSize.width)/2, (sSize.height - fSize.height)/2);
-        setSize(new Dimension(sSize.width, sSize.height));
-        
-        
-        setDefaultCloseOperation (WindowConstants.EXIT_ON_CLOSE);
-
-        Container container = getContentPane();
-
-        paintPanel.setLayout(new BorderLayout());// у этого лейаута приятная особенность - центральная часть растягивается автоматически
-        paintPanel.add(canvas, BorderLayout.CENTER);// добавляем нашу карту в центр
-        container.add(paintPanel);
-
-        JPanel statusPanel = new JPanel(new FlowLayout());
-        statusPanel.setLayout(new FlowLayout(FlowLayout.LEFT));
-        statusPanel.setBorder(BorderFactory.createLoweredBevelBorder());
-        container.add(statusPanel, BorderLayout.SOUTH);
-
-        generationLabel.setPreferredSize(new Dimension(140, 18));
-        generationLabel.setBorder(BorderFactory.createLoweredBevelBorder());
-        statusPanel.add(generationLabel);
-        populationLabel.setPreferredSize(new Dimension(140, 18));
-        populationLabel.setBorder(BorderFactory.createLoweredBevelBorder());
-        statusPanel.add(populationLabel);
-        organicLabel.setPreferredSize(new Dimension(140, 18));
-        organicLabel.setBorder(BorderFactory.createLoweredBevelBorder());
-        statusPanel.add(organicLabel);
-
-
-        JToolBar toolbar = new JToolBar();
-        toolbar.setOrientation(1);
-//        toolbar.setBorderPainted(true);
-//        toolbar.setBorder(BorderFactory.createLoweredBevelBorder());
-        container.add(toolbar, BorderLayout.WEST);
-
-        JLabel slider1Label = new JLabel("Map scale");
-        toolbar.add(slider1Label);
-
-        perlinSlider.setMajorTickSpacing(160);
-        perlinSlider.setMinorTickSpacing(80);
-        perlinSlider.setPaintTicks(true);
-        perlinSlider.setPaintLabels(true);
-        perlinSlider.setPreferredSize(new Dimension(100, perlinSlider.getPreferredSize().height));
-        perlinSlider.setAlignmentX(JComponent.LEFT_ALIGNMENT);
-        toolbar.add(perlinSlider);
-
-        mapButton.addActionListener(new mapButtonAction());
-        toolbar.add(mapButton);
-
-        JLabel slider2Label = new JLabel("Sea level");
-        toolbar.add(slider2Label);
-
-        sealevelSlider.addChangeListener(new sealevelSliderChange());
-        sealevelSlider.setMajorTickSpacing(128);
-        sealevelSlider.setMinorTickSpacing(64);
-        sealevelSlider.setPaintTicks(true);
-        sealevelSlider.setPaintLabels(true);
-        sealevelSlider.setPreferredSize(new Dimension(100, sealevelSlider.getPreferredSize().height));
-        sealevelSlider.setAlignmentX(JComponent.LEFT_ALIGNMENT);
-        toolbar.add(sealevelSlider);
-
-        startButton.addActionListener(new startButtonAction());
-        toolbar.add(startButton);
-
-        JLabel slider3Label = new JLabel("Draw step");
-        toolbar.add(slider3Label);
-
-        drawstepSlider.addChangeListener(new drawstepSliderChange());
-        drawstepSlider.setMajorTickSpacing(10);
-//        drawstepSlider.setMinimum(1);
-//        drawstepSlider.setMinorTickSpacing(64);
-        drawstepSlider.setPaintTicks(true);
-        drawstepSlider.setPaintLabels(true);
-        drawstepSlider.setPreferredSize(new Dimension(100, sealevelSlider.getPreferredSize().height));
-        drawstepSlider.setAlignmentX(JComponent.LEFT_ALIGNMENT);
-        toolbar.add(drawstepSlider);
-
-
-        ButtonGroup group = new ButtonGroup();
-        group.add(baseButton);
-        group.add(combinedButton);
-        group.add(energyButton);
-        group.add(mineralButton);
-        group.add(ageButton);
-        group.add(familyButton);
-        toolbar.add(baseButton);
-        toolbar.add(combinedButton);
-        toolbar.add(energyButton);
-        toolbar.add(mineralButton);
-        toolbar.add(ageButton);
-        toolbar.add(familyButton);
-
-        this.pack();
-        this.setVisible(true);
-        setExtendedState(MAXIMIZED_BOTH);
+        gui = new Gui(this);
+        gui.init();
     }
 
-    class sealevelSliderChange implements ChangeListener {
-        public void stateChanged(ChangeEvent event) {
-            sealevel = sealevelSlider.getValue();
-            if (map != null) {
-                paintMapView();
-                paint1();
-            }
-        }
+    @Override
+    public void drawStepChanged(int value) {
+        this.drawstep = value;
     }
 
-    class drawstepSliderChange implements ChangeListener {
-        public void stateChanged(ChangeEvent event) {
-            int ds = drawstepSlider.getValue();
-            if (ds == 0) ds = 1;
-            drawstep = ds;
-        }
+    @Override
+    public void mapGenerationStarted(int canvasWidth, int canvasHeight) {
+        width = canvasWidth / zoom;    // Ширина доступной части экрана для рисования карты
+        height = canvasHeight / zoom;
+        generateMap((int) (Math.random() * 10000));
+        generateAdam();
+        paintMapView();
+        paint1();
     }
 
-    class mapButtonAction implements ActionListener {
-        public void actionPerformed(ActionEvent e) {
-            width = canvas.getWidth() / zoom;    // Ширина доступной части экрана для рисования карты
-            height = canvas.getHeight() / zoom;
-            generateMap((int) (Math.random() * 10000));
-            generateAdam();
+    @Override
+    public void seaLevelChanged(int value) {
+        sealevel = value;
+        if (map != null) {
             paintMapView();
             paint1();
         }
     }
-    class startButtonAction implements ActionListener {
-        public void actionPerformed(ActionEvent e) {
-        	if(thread==null) {
-        	    perlinSlider.setEnabled(false);
-        	    mapButton.setEnabled(false);
-        		thread	= new Worker(); // создаем новый поток
-        		thread.start();
-        	} else {
-        		started = false;        //Выставляем влаг
-        		thread = null;
-                perlinSlider.setEnabled(true);
-                mapButton.setEnabled(true);
-        	}
+
+    @Override
+    public boolean startedOrStopped() {
+        if(thread==null) {
+            thread	= new Worker(); // создаем новый поток
+            thread.start();
+            return true;
+        } else {
+            started = false;        //Выставляем влаг
+            Utils.joinSafe(thread);
+            thread = null;
+            return false;
         }
+    }
+
+    @Override
+    public void viewModeChanged(int viewMode) {
+        this.viewMode = viewMode;
     }
 
     public void paintMapView() {
         int mapred;
         int mapgreen;
         int mapblue;
-        mapbuffer = canvas.createImage(width * zoom, height * zoom); // ширина - высота картинки
+        mapbuffer = gui.canvas.createImage(width * zoom, height * zoom); // ширина - высота картинки
         Graphics g = mapbuffer.getGraphics();
 
         final BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
@@ -248,7 +125,7 @@ public class World extends JFrame {
 //    @Override
     public void paint1() {
 
-        Image buf = canvas.createImage(width * zoom, height * zoom); //Создаем временный буфер для рисования
+        Image buf = gui.canvas.createImage(width * zoom, height * zoom); //Создаем временный буфер для рисования
         Graphics g = buf.getGraphics(); //подеменяем графику на временный буфер
         g.drawImage(mapbuffer, 0, 0, null);
 
@@ -261,26 +138,26 @@ public class World extends JFrame {
 
         while (currentbot != zerobot) {
             if (currentbot.alive == 3) {                      // живой бот
-                if (baseButton.isSelected()) {
+                if (viewMode == VIEW_MODE_BASE) {
                     rgb[currentbot.y * width + currentbot.x] = (255 << 24) | (currentbot.c_red << 16) | (currentbot.c_green << 8) | currentbot.c_blue;
-                } else if (energyButton.isSelected()) {
+                } else if (viewMode == VIEW_MODE_ENERGY) {
                     mapgreen = 255 - (int) (currentbot.health * 0.25);
                     if (mapgreen < 0) mapgreen = 0;
                     rgb[currentbot.y * width + currentbot.x] = (255 << 24) | (255 << 16) | (mapgreen << 8) | 0;
-                } else if (mineralButton.isSelected()) {
+                } else if (viewMode == VIEW_MODE_MINERAL) {
                     mapblue = 255 - (int) (currentbot.mineral * 0.5);
                     if (mapblue < 0) mapblue = 0;
                     rgb[currentbot.y * width + currentbot.x] = (255 << 24) | (0 << 16) | (255 << 8) | mapblue;
-                } else if (combinedButton.isSelected()) {
+                } else if (viewMode == VIEW_MODE_COMBINED) {
                     mapgreen = (int) (currentbot.c_green * (1 - currentbot.health * 0.0005));
                     if (mapgreen < 0) mapgreen = 0;
                     mapblue = (int) (currentbot.c_blue * (0.8 - currentbot.mineral * 0.0005));
                     rgb[currentbot.y * width + currentbot.x] = (255 << 24) | (currentbot.c_red << 16) | (mapgreen << 8) | mapblue;
-                } else if (ageButton.isSelected()) {
+                } else if (viewMode == VIEW_MODE_AGE) {
                     mapred = 255 - (int) (Math.sqrt(currentbot.age) * 4);
                     if (mapred < 0) mapred = 0;
                     rgb[currentbot.y * width + currentbot.x] = (255 << 24) | (mapred << 16) | (0 << 8) | 255;
-                } else if (familyButton.isSelected()) {
+                } else if (viewMode == VIEW_MODE_FAMILY) {
                     rgb[currentbot.y * width + currentbot.x] = currentbot.c_family;
                 }
                 population++;
@@ -308,14 +185,13 @@ public class World extends JFrame {
 
         g.drawImage(image, 0, 0, null);
 
-        generationLabel.setText(" Generation: " + String.valueOf(generation));
-        populationLabel.setText(" Population: " + String.valueOf(population));
-        organicLabel.setText(" Organic: " + String.valueOf(organic));
+        gui.generationLabel.setText(" Generation: " + String.valueOf(generation));
+        gui.populationLabel.setText(" Population: " + String.valueOf(population));
+        gui.organicLabel.setText(" Organic: " + String.valueOf(organic));
 
-        buffer = buf;
-        canvas.repaint();
+        gui.buffer = buf;
+        gui.canvas.repaint();
     }
-
 
     class Worker extends Thread {
         public void run() {
@@ -368,7 +244,7 @@ public class World extends JFrame {
         Perlin2D perlin = new Perlin2D(seed);
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                float f = (float) perlinSlider.getValue();
+                float f = (float) gui.perlinSlider.getValue();
                 float value = perlin.getNoise(x/f,y/f,8,0.45f);        // вычисляем точку ландшафта
                 map[x][y] = (int)(value * 255 + 128) & 255;
             }
