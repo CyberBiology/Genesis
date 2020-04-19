@@ -19,6 +19,7 @@ public class World extends JFrame {
     private int zoom;
     int sealevel;
     private int drawstep;
+    private int limit = 40000;
     int[][] map;    //Карта мира
     private int[] mapInGPU;    //Карта для GPU
     private Image mapbuffer = null;
@@ -44,6 +45,9 @@ public class World extends JFrame {
     private JLabel generationLabel = new JLabel(" Generation: 0 ");
     private JLabel populationLabel = new JLabel(" Population: 0 ");
     private JLabel organicLabel = new JLabel(" Organic: 0 ");
+    private JLabel seaLabel = new JLabel(" Sea: 0 ");
+    private JLabel limitLabel = new JLabel(" Limit: " + limit + " ");
+    private JSlider limitSlider = new JSlider(JSlider.HORIZONTAL, 0, 200, 50);
 
     private JSlider perlinSlider = new JSlider (JSlider.HORIZONTAL, 0, 480, 300);
     private JButton mapButton = new JButton("Create Map");
@@ -98,6 +102,12 @@ public class World extends JFrame {
         organicLabel.setPreferredSize(new Dimension(140, 18));
         organicLabel.setBorder(BorderFactory.createLoweredBevelBorder());
         statusPanel.add(organicLabel);
+        seaLabel.setPreferredSize(new Dimension(140, 18));
+        seaLabel.setBorder(BorderFactory.createLoweredBevelBorder());
+        statusPanel.add(seaLabel);
+        limitLabel.setPreferredSize(new Dimension(140, 18));
+        limitLabel.setBorder(BorderFactory.createLoweredBevelBorder());
+        statusPanel.add(limitLabel);
 
 
         JToolBar toolbar = new JToolBar();
@@ -148,6 +158,16 @@ public class World extends JFrame {
         drawstepSlider.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         toolbar.add(drawstepSlider);
 
+        JLabel slider4Label = new JLabel("Population limit");
+        toolbar.add(slider4Label);
+        limitSlider.addChangeListener(new limitSliderChange());
+        limitSlider.setMajorTickSpacing(50);
+        limitSlider.setPaintTicks(true);
+        limitSlider.setPaintLabels(true);
+        limitSlider.setPreferredSize(new Dimension(100, drawstepSlider.getPreferredSize().height));
+        limitSlider.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        toolbar.add(limitSlider);
+
 
         ButtonGroup group = new ButtonGroup();
         group.add(baseButton);
@@ -178,6 +198,13 @@ public class World extends JFrame {
         }
     }
 
+    class limitSliderChange implements ChangeListener {
+        public void stateChanged(ChangeEvent event) {
+            int ds = limitSlider.getValue();
+            if (ds == 0) ds = 1;
+            limit = ds * 1000;
+        }
+    }
     class drawstepSliderChange implements ChangeListener {
         public void stateChanged(ChangeEvent event) {
             int ds = drawstepSlider.getValue();
@@ -311,6 +338,9 @@ public class World extends JFrame {
         generationLabel.setText(" Generation: " + String.valueOf(generation));
         populationLabel.setText(" Population: " + String.valueOf(population));
         organicLabel.setText(" Organic: " + String.valueOf(organic));
+        seaLabel.setText(" Sealevel: " + String.valueOf(sealevel));
+        limitLabel.setText(" Limit: " + String.valueOf(limit));
+        sealevelSlider.setValue(sealevel);
 
         buffer = buf;
         canvas.repaint();
@@ -334,6 +364,15 @@ public class World extends JFrame {
                     paint1();                           // отображаем текущее состояние симуляции на экран
                 }
                 long time3 = System.currentTimeMillis();
+                // контроль популяции
+                // времена года
+                if (generation % 50 == 0 && 80 < sealevel && sealevel < 256) {
+                    boolean biggerEq500 = generation % 1000 >= 500;
+                    if ((population > limit && sealevel < 256) || biggerEq500)
+                        sealevel++;
+                    else if ((population < 10000 && sealevel > 120) || !biggerEq500)
+                        sealevel--;
+                }
 //                System.out.println("Paint: " + (time3-time2));
             }
             started = false;        // Закончили работу

@@ -1,3 +1,5 @@
+import java.util.Arrays;
+
 public class Bot {
 
     private static final int LV_ORGANIC_HOLD = 1;           // органика
@@ -662,7 +664,7 @@ public class Bot {
             int ma = (int) (rand() * MIND_SIZE);  // 0..63
             int mc = (int) (rand() * MIND_SIZE);  // 0..63
             newbot.mind[ma] = (byte) mc;
-            newbot.c_family = getNewColor(c_family);    // цвет семьи вычисляем новый
+            newbot.c_family = getNewColor(this);    // цвет семьи вычисляем новый
         }
 
         newbot.direction = (int) (rand() * 8);  // направление, куда повернут новорожденный, генерируется случайно
@@ -675,15 +677,21 @@ public class Bot {
         World.simulation.matrix[xt][yt] = newbot;    // отмечаем нового бота в массиве matrix
     }
 
-    private int getNewColor(int parentColor) {
-        int r, g, b;
-        r = getRed(parentColor);
-        g = getGreen(parentColor);
-        b = getBlue(parentColor);
-
-        double delta = ((200000 / (World.simulation.generation + 1000)) + 20);
-
-        return getIntColor(vc(r + (int) (rand() * delta - delta / 2)), vc(g + (int) (rand() * delta - delta / 2)), vc(b + (int) (rand() * delta - delta / 2)));
+    public int getNewColor(Bot parent) {
+        int[] array = new int[MIND_SIZE];
+        for (int i = 0; i < MIND_SIZE; i++) {
+            array[i] = (int) (parent.mind[i]);
+        }
+        int thirdPart = (int) ((float) MIND_SIZE / 3);
+        float converter = (float) 256 / thirdPart;
+        int[] rArray = Arrays.copyOfRange(array, 0, thirdPart);
+        int[] gArray = Arrays.copyOfRange(array, thirdPart, thirdPart * 2);
+        int[] bArray = Arrays.copyOfRange(array, thirdPart * 2, MIND_SIZE);
+        return getIntColor(
+                (int) ((float) Arrays.stream(rArray).sum() / rArray.length * converter),
+                (int) ((float) Arrays.stream(gArray).sum() / gArray.length * converter),
+                (int) ((float) Arrays.stream(bArray).sum() / bArray.length * converter)
+        );
     }
 
 
