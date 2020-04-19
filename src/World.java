@@ -12,7 +12,7 @@ import java.awt.image.DataBufferInt;
 
 
 // Основной класс программы.
-public class World {
+public class World implements GuiCallback,Consts {
 
     int width;
     int height;
@@ -28,70 +28,66 @@ public class World {
     int generation;
     private int population;
     private int organic;
+    private int viewMode = VIEW_MODE_BASE;
 
     private Image buffer = null;
 
     private Thread thread = null;
     private boolean started = true; // поток работает?
 
-    private Gui gui = new Gui();
+    private final Gui gui;
 
     public World() {
         simulation = this;
         zoom = 1;
         sealevel = 145;
         drawstep = 10;
+        gui = new Gui(this);
         gui.init();
-        gui.mapButton.addActionListener(mapButtonAction);
-        gui.sealevelSlider.addChangeListener(sealevelSliderChange);
-        gui.startButton.addActionListener(startButtonAction);
-        gui.drawstepSlider.addChangeListener(drawstepSliderChange);
     }
 
-    ChangeListener sealevelSliderChange = new ChangeListener() {
-        public void stateChanged(ChangeEvent event) {
-            sealevel = gui.sealevelSlider.getValue();
-            if (map != null) {
-                paintMapView();
-                paint1();
-            }
-        }
-    };
+    @Override
+    public void drawStepChanged(int value) {
+        this.drawstep = value;
+    }
 
-    ChangeListener drawstepSliderChange = new ChangeListener() {
-        public void stateChanged(ChangeEvent event) {
-            int ds = gui.drawstepSlider.getValue();
-            if (ds == 0) ds = 1;
-            drawstep = ds;
-        }
-    };
+    @Override
+    public void mapGenerationStarted(int canvasWidth, int canvasHeight) {
+        width = canvasWidth / zoom;    // Ширина доступной части экрана для рисования карты
+        height = canvasHeight / zoom;
+        generateMap((int) (Math.random() * 10000));
+        generateAdam();
+        paintMapView();
+        paint1();
+    }
 
-    ActionListener mapButtonAction = new ActionListener() {
-        public void actionPerformed(ActionEvent e) {
-            width = gui.canvas.getWidth() / zoom;    // Ширина доступной части экрана для рисования карты
-            height = gui.canvas.getHeight() / zoom;
-            generateMap((int) (Math.random() * 10000));
-            generateAdam();
+    @Override
+    public void seaLevelChanged(int value) {
+        sealevel = value;
+        if (map != null) {
             paintMapView();
             paint1();
         }
-    };
+    }
 
-    ActionListener startButtonAction = new ActionListener() {
-        public void actionPerformed(ActionEvent e) {
-        	if(thread==null) {
-                gui.perlinSlider.setEnabled(false);
-                gui.mapButton.setEnabled(false);
-        		thread	= new Worker(); // создаем новый поток
-        		thread.start();
-        	} else {
-        		started = false;        //Выставляем влаг
-        		thread = null;
-                gui.perlinSlider.setEnabled(true);
-                gui.mapButton.setEnabled(true);
-        	}
+    @Override
+    public boolean startedOrStopped() {
+        if(thread==null) {
+            thread	= new Worker(); // создаем новый поток
+            thread.start();
+            return true;
+        } else {
+            started = false;        //Выставляем влаг
+            Utils.joinSafe(thread);
+            thread = null;
+            return false;
         }
-    };
+    }
+
+    @Override
+    public void viewModeChanged(int viewMode) {
+        this.viewMode = viewMode;
+    }
 
     public void paintMapView() {
         int mapred;
@@ -142,26 +138,26 @@ public class World {
 
         while (currentbot != zerobot) {
             if (currentbot.alive == 3) {                      // живой бот
-                if (gui.baseButton.isSelected()) {
+                if (viewMode == VIEW_MODE_BASE) {
                     rgb[currentbot.y * width + currentbot.x] = (255 << 24) | (currentbot.c_red << 16) | (currentbot.c_green << 8) | currentbot.c_blue;
-                } else if (gui.energyButton.isSelected()) {
+                } else if (viewMode == VIEW_MODE_ENERGY) {
                     mapgreen = 255 - (int) (currentbot.health * 0.25);
                     if (mapgreen < 0) mapgreen = 0;
                     rgb[currentbot.y * width + currentbot.x] = (255 << 24) | (255 << 16) | (mapgreen << 8) | 0;
-                } else if (gui.mineralButton.isSelected()) {
+                } else if (viewMode == VIEW_MODE_MINERAL) {
                     mapblue = 255 - (int) (currentbot.mineral * 0.5);
                     if (mapblue < 0) mapblue = 0;
                     rgb[currentbot.y * width + currentbot.x] = (255 << 24) | (0 << 16) | (255 << 8) | mapblue;
-                } else if (gui.combinedButton.isSelected()) {
+                } else if (viewMode == VIEW_MODE_COMBINED) {
                     mapgreen = (int) (currentbot.c_green * (1 - currentbot.health * 0.0005));
                     if (mapgreen < 0) mapgreen = 0;
                     mapblue = (int) (currentbot.c_blue * (0.8 - currentbot.mineral * 0.0005));
                     rgb[currentbot.y * width + currentbot.x] = (255 << 24) | (currentbot.c_red << 16) | (mapgreen << 8) | mapblue;
-                } else if (gui.ageButton.isSelected()) {
+                } else if (viewMode == VIEW_MODE_AGE) {
                     mapred = 255 - (int) (Math.sqrt(currentbot.age) * 4);
                     if (mapred < 0) mapred = 0;
                     rgb[currentbot.y * width + currentbot.x] = (255 << 24) | (mapred << 16) | (0 << 8) | 255;
-                } else if (gui.familyButton.isSelected()) {
+                } else if (viewMode == VIEW_MODE_FAMILY) {
                     rgb[currentbot.y * width + currentbot.x] = currentbot.c_family;
                 }
                 population++;
@@ -196,7 +192,6 @@ public class World {
         gui.buffer = buf;
         gui.canvas.repaint();
     }
-
 
     class Worker extends Thread {
         public void run() {
